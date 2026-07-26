@@ -1,5 +1,18 @@
 ***
-# Lập trình mạng cùng với Unity 
+# Combat 3D - Unity Multiplayer Tank Battle Game
+![Mô hình phân rã ](fig/logo.png)
+## Tổng quan trò chơi
+- Trò chơi là phiên bản 3D lấy ý tưởng từ tựa game “Combat” ra mắt năm 1977
+dành cho máy chơi game Atari 2600. Tương tự như trò chơi cổ điển đó, sản phẩm
+của chúng em là trò chơi bắn xe tăng với góc nhìn từ trên xuống dành cho nhiều
+người chơi. Trong đó mục tiêu của người chơi là bắn phá xe tăng của những người
+chơi khác.
+- Đối tượng: xe tăng
+<p align="center">
+  <img src="fig/tank_model.jpg" alt="Tank 3D Model" width="400"/>
+  <br>
+  <em>Mô hình xe tăng 3D trong game</em>
+</p>
 
 ## Phạm vi 
 Dự án được thực hiện trong phạm vi môn học Lập trình mạng căn bản NT106.O22 - UIT K17
@@ -47,184 +60,42 @@ Luật chơi
 
 &copy; https://github.com/VeriorPies/ParrelSync
 
-## Thực hiện 
+## Gameplay
+- Số lượng người chơi trong phòng: tối đa 4 người chơi.
+- Sau khi kết nối, người chơi sẽ được đưa vào phòng chờ.
+- Trò chơi được bắt đầu khi tất cả mọi người đều sẵn sàng
+- Khi vào game, người chơi sẽ được tạo 1 xe tăng vào bản đồ game
+- Người chơi vào phòng sẽ theo thứ tự ứng với màu 1 chiếu xe tăng.
+- Người vào đầu tiên sở hữu xe tăng màu đỏ.
+- Người vào thứ hai sở hữu xe tăng màu vàng.
+- Người vào thứ ba sở hữu xe tăng màu cam.
+- Người vào cuối cùng sở hữu xe tăng màu xanh.
+- Bắn nhau trong một thời gian nhất định
+## Tính năng
+- Tạo phòng chơi với số lượng nhiều người chơi (1 host – multiclients).
+- Có thể tạo phòng:
+    - Public: bất kì ai cx có thể vào được.
+    - Private: chỉ có thể vào bằng code phòng.
+    - Phòng trống lển thanh thông báo.
+- Vào trò chơi:
+    - Truy cập nhanh – nút Quick Join.
+    - Truy cập vào bằng mã code – Nhập mã có tồn tại vào trường CODE và nhấn nút Join Code.
+    - Tên hiển thị phòng đang còn trống.
+- Người chơi có thể tác động vật lí lên người chơi khác.
+## Kiến trúc
+- Mô hình phân rã chức năng
+![Mô hình phân rã ](fig/BFD.png)
+![Mô hình phân rã ](fig/BFD2.png)
+<p align="center">
+  <em>Mô hình phân rã chức năng trong game</em>
+</p>
 
-### Thiết kế lại cảnh
+---
 
-### Thêm nhiều người chơi 
+## 🔒 Copyright & License
 
-#### Điều chỉnh di chuyển
-- Scipt Player.cs là điểu khiển di chuyển của đối tượng
+Project developed and maintained by **0xt4i**.
 
-```cpp
-using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting;
-using UnityEngine;
-using Unity.Netcode;
+© 2024 **Tai Huu Nguyen**. All Rights Reserved.
 
-public class Player : NetworkBehaviour
-{
-    // How quickly player moves forward and back
-    private float speed = 10f;
-
-    // How quickly player rotates (degrees per second)
-
-    private float rotationSpeed = 180f;
-
-    private Rigidbody body;
-    // Use this for initialization
-    void Start()
-    {
-        // Retrieve reference to this GameObject's Rigidbody component
-        body = GetComponent<Rigidbody>();
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        HandleMovement();
-    }
-
-
-    //Xử lí di chuyển của player
-    private void HandleMovement()
-    {
-        if (!IsOwner) return;
-        if (!SuperTanksGameManager.Instance.IsGamePlaying()) return;
-         // Check if GameInput.Instance is null
-        if (GameInput.Instance == null)
-        {
-            Debug.LogError("GameInput.Instance is null");
-            return;
-        }
-        // Get movement input value
-        float movementInput = GameInput.Instance.GetMovementInput();
-       
-        // Determine amount to move based on current forward direction and speed
-        Vector3 movement = transform.forward * movementInput * speed * Time.deltaTime;
-
-        // Move our Rigidbody to this position
-        body.MovePosition(body.position + movement);
-
-        // Get rotation input value
-        float rotationInput = GameInput.Instance.GetRotationInput();
-
-        // Determine number of degrees to turn based on rotation speed
-        float degreesToTurn = rotationInput * rotationSpeed * Time.deltaTime;
-
-        // Get Quaternion equivalent of this amount of rotation around the y-axis
-        Quaternion rotation = Quaternion.Euler(0f, degreesToTurn, 0f);
-
-        // Rotate our Rigidbody by this amount
-        body.MoveRotation(body.rotation * rotation);
-    }
-}
-```
-- Scipt MissileGun.cs
-```cpp
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Netcode;
-using UnityEngine;
-using static Unity.Burst.Intrinsics.Arm;
-
-public class MissileGun : NetworkBehaviour
-{
-    public int player = 1;
-
-    public float fireForce = 2000;
-
-    [SerializeField] public GameObject missilePrefab;
-
-    [SerializeField] public Transform fireTransform;
-    //để kiểm soát các thực thể tên lửa
-    [SerializeField] public List<GameObject> spawnedMissile = new List<GameObject>();
-
-
-    // Update is called once per frame
-    void Update()
-    {
-        if (!IsOwner) return;
-        if (!SuperTanksGameManager.Instance.IsGamePlaying()) return;
-
-        if (Input.GetButtonDown("Fire"+player))
-        { 
-            CreateMissileServerRpc();
-        }    
-  
-    }
-    //Tạo Rpc để tạo tên lửa
-    [ServerRpc]
-    public void CreateMissileServerRpc()
-    {
-        // lấy tên lửa từ prefab và vị trí bắn
-        GameObject missile = Instantiate(missilePrefab, fireTransform.position, transform.rotation);
-        
-        spawnedMissile.Add(missile);
-
-        missile.GetComponent<MissileExplosion>().parent = this;
-        NetworkObject networkObject = missile.GetComponent<NetworkObject>();   
-
-        networkObject.GetComponent<NetworkObject>().Spawn();
-
-        Rigidbody missileRigidbody = networkObject.GetComponent<Rigidbody>();
-
-        missileRigidbody.AddForce(fireTransform.forward * fireForce);
-
-    }
-    //Tạo Rpc để hủy tên lửa
-    [ServerRpc(RequireOwnership = false)]
-    public void DestroyMissileServerRpc()
-    {
-        GameObject toDestroy = spawnedMissile[0];
-        NetworkObject destroyNetworkObject = toDestroy.GetComponent<NetworkObject>();
-        destroyNetworkObject.Despawn();
-        spawnedMissile.Remove(toDestroy);
-        Destroy(toDestroy);
-    }
-}
-```
-
-- Script MissileExplosion.cs
-```cpp
-using JetBrains.Annotations;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Netcode;
-using UnityEngine;
-using UnityEngine.Rendering;
-
-public class MissileExplosion : NetworkBehaviour
-{
-    public MissileGun parent;
-
-    public GameObject explosionPrefab;
-
-    public float explosionRadius = 5;
-
-    public float explosionForce = 1000;
-   
-    
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        if(!IsOwner) return;
-        
-        InstantiateCollisionEnterServerRpc();
-
-        parent.DestroyMissileServerRpc();   
-    }
-    [ServerRpc]
-    private void InstantiateCollisionEnterServerRpc()
-    {
-        GameObject hitImpact=Instantiate(explosionPrefab, transform.position, Quaternion.identity);
-        NetworkObject hitImpactNetworkObject = hitImpact.GetComponent<NetworkObject>();
-        hitImpactNetworkObject.Spawn(); 
-        hitImpactNetworkObject.transform.localEulerAngles =new Vector3(0f,0f,-90f);
-    }
-}
-
-```
-### Thiết kế lại luật chơi 
+> **Lưu ý:** Mọi mã nguồn và tài nguyên trong repository này thuộc sở hữu cá nhân. Vui lòng không sao chép hoặc tái sử dụng cho mục đích thương mại khi chưa có sự đồng ý.
